@@ -1,72 +1,92 @@
-import React, { useState } from 'react'
-import './Quiz.css'
-import QuizQuestion from '../core/QuizQuestion';
-
-interface QuizState {
-  questions: QuizQuestion[]
-  currentQuestionIndex: number
-  selectedAnswer: string | null
-  score: number
-}
+import React, { useMemo, useState } from "react";
+import "./Quiz.css";
+import QuizCore from "../core/QuizCore";
+import QuizQuestion from "../core/QuizQuestion";
 
 const Quiz: React.FC = () => {
-  const initialQuestions: QuizQuestion[] = [
-    {
-      question: 'What is the capital of France?',
-      options: ['London', 'Berlin', 'Paris', 'Madrid'],
-      correctAnswer: 'Paris',
-    },
-  ];
-  const [state, setState] = useState<QuizState>({
-    questions: initialQuestions,
-    currentQuestionIndex: 0,  // Initialize the current question index.
-    selectedAnswer: null,  // Initialize the selected answer.
-    score: 0,  // Initialize the score.
-  });
+  const quizCore = useMemo(() => new QuizCore(), []);
+
+  const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion>(
+    quizCore.getCurrentQuestion(),
+  );
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(
+    quizCore.getSelectedAnswer(),
+  );
+  const [isCompleted, setIsCompleted] = useState<boolean>(false);
 
   const handleOptionSelect = (option: string): void => {
-    setState((prevState) => ({ ...prevState, selectedAnswer: option }));
-  }
+    quizCore.answerQuestion(option);
+    setSelectedAnswer(option);
+  };
 
+  const syncQuestionState = (): void => {
+    setCurrentQuestion(quizCore.getCurrentQuestion());
+    setSelectedAnswer(quizCore.getSelectedAnswer());
+  };
 
-  const handleButtonClick = (): void => {
-    // Task3: Implement the logic for button click, such as moving to the next question.
-  } 
+  const handleNextClick = (): void => {
+    if (!selectedAnswer) return;
 
-  const { questions, currentQuestionIndex, selectedAnswer, score } = state;
-  const currentQuestion = questions[currentQuestionIndex];
+    if (quizCore.hasNextQuestion()) {
+      quizCore.nextQuestion();
+      syncQuestionState();
+    } else {
+      setIsCompleted(true);
+    }
+  };
 
-  if (!currentQuestion) {
+  const handlePreviousClick = (): void => {
+    if (!quizCore.hasPreviousQuestion()) return;
+
+    quizCore.previousQuestion();
+    syncQuestionState();
+  };
+
+  if (isCompleted) {
     return (
-      <div>
+      <div className="quiz-container">
         <h2>Quiz Completed</h2>
-        <p>Final Score: {score} out of {questions.length}</p>
+        <p>
+          Final Score: {quizCore.getScore()} / {quizCore.getTotalQuestions()}
+        </p>
       </div>
     );
   }
 
   return (
-    <div>
+    <div className="quiz-container">
+      <p>
+        Question {quizCore.getCurrentQuestionIndex() + 1} /{" "}
+        {quizCore.getTotalQuestions()}
+      </p>
       <h2>Quiz Question:</h2>
       <p>{currentQuestion.question}</p>
-    
-      <h3>Answer Options:</h3>
+
       <ul>
         {currentQuestion.options.map((option) => (
           <li
             key={option}
             onClick={() => handleOptionSelect(option)}
-            className={selectedAnswer === option ? 'selected' : ''}
+            className={selectedAnswer === option ? "selected" : ""}
           >
             {option}
           </li>
         ))}
       </ul>
 
-      <h3>Selected Answer:</h3>
-      <p>{selectedAnswer ?? 'No answer selected'}</p>
+      <p>Selected: {selectedAnswer ?? "None"}</p>
 
-      <button onClick={handleButtonClick}>Next Question</button>
+      <div className="quiz-actions">
+        <button
+          onClick={handlePreviousClick}
+          disabled={!quizCore.hasPreviousQuestion()}
+        >
+          Previous
+        </button>
+        <button onClick={handleNextClick} disabled={!selectedAnswer}>
+          {quizCore.isLastQuestion() ? "Submit" : "Next Question"}
+        </button>
+      </div>
     </div>
   );
 };
